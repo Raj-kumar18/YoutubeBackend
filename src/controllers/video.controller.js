@@ -9,6 +9,7 @@ import { uploadOnCloudinary } from "../utils/cloudinary.js"
 
 const getAllVideos = asyncHandler(async (req, res) => {
     const { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query
+    console.log(query);
     //TODO: get all videos based on query, sort, pagination
 
     const video = await Video.aggregate([
@@ -116,7 +117,7 @@ const publishAVideo = asyncHandler(async (req, res) => {
 
 const getVideoById = asyncHandler(async (req, res) => {
     const { videoId } = req.params
-    
+
 })
 
 const updateVideo = asyncHandler(async (req, res) => {
