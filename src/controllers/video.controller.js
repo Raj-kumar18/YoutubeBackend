@@ -4,7 +4,7 @@ import { User } from "../models/user.model.js"
 import { ApiError } from "../utils/ApiError.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
 import { asyncHandler } from "../utils/asyncHandler.js"
-import { uploadOnCloudinary } from "../utils/cloudinary.js"
+import { deleteFromCloudinary, uploadOnCloudinary } from "../utils/cloudinary.js"
 
 
 const getAllVideos = asyncHandler(async (req, res) => {
@@ -136,16 +136,129 @@ const getVideoById = asyncHandler(async (req, res) => {
 const updateVideo = asyncHandler(async (req, res) => {
     const { videoId } = req.params
     //TODO: update video details like title, description, thumbnail
+    if (!isValidObjectId(videoId)) {
+        throw new ApiError(400, "Invalid video id")
+    }
+    const { title, description } = req.body
+    if (!title || !description) {
+        throw new ApiError(400, "Title and description are required")
+    }
 
+    const newThumbnailLocalPath = req.file?.path;
+    if (!newThumbnailLocalPath) {
+        throw new ApiError(400, "Thumbnail is required")
+    }
+    console.log("req.user:", req.user);
+    const video = await Video.findById(videoId)
+    console.log("video.owner:", video.owner);
+    if (!video) {
+        throw new ApiError(404, "Video not found")
+    }
+
+    if (video.owner.toString() !== req.user._id.toString()) {
+        throw new ApiError(403, "You are not authorized to update this video");
+    }
+
+
+    const deleteThumbnailResponse = await deleteFromCloudinary(video.thumbnail)
+    if (!deleteThumbnailResponse) {
+        throw new ApiError(400, "Thumbnail deletion failed")
+    }
+
+    const newThumbnail = await uploadOnCloudinary(newThumbnailLocalPath)
+    if (!newThumbnail.url) {
+        throw new ApiError(400, "Thumbnail upload failed")
+    }
+
+    const updateVideo = await Video.findByIdAndUpdate(videoId, {
+        title,
+        description,
+        thumbnail: newThumbnail.url
+    }, {
+        new: true
+    })
+
+    if (!updateVideo) {
+        throw new ApiError(400, "Video update failed")
+    }
+
+    return res.status(200).json(new ApiResponse(
+        200,
+        "Video updated successfully",
+        updateVideo
+    ))
 })
 
 const deleteVideo = asyncHandler(async (req, res) => {
     const { videoId } = req.params
     //TODO: delete video
+    if (!isValidObjectId(videoId)) {
+        throw new ApiError(400, "Invalid video id")
+    }
+
+    const video = await Video.findById(videoId)
+    if (!video) {
+        throw new ApiError(404, "Video not found")
+    }
+
+    if (video.owner.toString() !== req.user._id.toString()) {
+        throw new ApiError(403, "You are not authorized to delete this video");
+    }
+
+    const deleteVideoResponse = await deleteFromCloudinary(video.videoFile)
+    if (!deleteVideoResponse) {
+        throw new ApiError(400, "Video deletion failed")
+    }
+
+    const deleteThumbnailResponse = await deleteFromCloudinary(video.thumbnail)
+    if (!deleteThumbnailResponse) {
+        throw new ApiError(400, "Thumbnail deletion failed")
+    }
+
+    const deleteVideo = await Video.findByIdAndDelete(videoId)
+    if (!deleteVideo) {
+        throw new ApiError(400, "Video deletion failed")
+    }
+
+    return res.status(200).json(new ApiResponse(
+        200,
+        "Video deleted successfully",
+        deleteVideo
+    ))
 })
 
 const togglePublishStatus = asyncHandler(async (req, res) => {
     const { videoId } = req.params
+    if (!isValidObjectId(videoId)) {
+        throw new ApiError(400, "Invalid video id")
+    }
+
+    const video = await Video.findById(videoId)
+    if (!video) {
+        throw new ApiError(404, "Video not found")
+    }
+
+    if (video.owner.toString() !== req.user._id.toString()) {
+        throw new ApiError(403, "You are not authorized to update this video");
+    }
+
+    const updateVideo = await Video.findByIdAndUpdate(videoId, {
+        $set: {
+            isPublished: !video.isPublished
+        }
+    }, {
+        new: true
+    })
+
+    if (!updateVideo) {
+        throw new ApiError(400, "Video update failed")
+    }
+
+    return res.status(200).json(new ApiResponse(
+        200,
+        "Video updated successfully",
+        updateVideo
+    ))
 })
 
 export {
