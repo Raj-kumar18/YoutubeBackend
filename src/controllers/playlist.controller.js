@@ -216,19 +216,84 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
 const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
     const { playlistId, videoId } = req.params
     // TODO: remove video from playlist
-    
+    if (!isValidObjectId(playlistId) || !isValidObjectId(videoId)) {
+        throw new ApiError(400, "Invalid playlist or video id")
+    }
+
+    const playlist = await Playlist.findById(playlistId)
+    if (!playlist) {
+        throw new ApiError(404, "Playlist not found")
+    }
+    const video = await Video.findById(videoId)
+    if (!video) {
+        throw new ApiError(404, "Video not found")
+    }
+    const updatedPlaylist = await Playlist.findByIdAndUpdate(playlistId, {
+        $pull: { videos: videoId }
+    })
+    if (!updatedPlaylist) {
+        throw new ApiError(400, "Playlist update failed")
+    }
+    return res.status(200).json(new ApiResponse(
+        200,
+        "Video removed from playlist successfully",
+        updatedPlaylist
+    ))
+
 
 })
 
 const deletePlaylist = asyncHandler(async (req, res) => {
     const { playlistId } = req.params
     // TODO: delete playlist
+    if(!isValidObjectId(playlistId)){
+        throw new ApiError(400, "Invalid playlist id")
+    }
+
+    const playlist = await Playlist.findById(playlistId)
+    if(!playlist){
+        throw new ApiError(404, "Playlist not found")
+    }
+    const deletedPlaylist = await Playlist.findByIdAndDelete(playlistId)
+    if(!deletedPlaylist){
+        throw new ApiError(400, "Playlist delete failed")
+    }
+
+    return res.status(200).json(new ApiResponse(
+        200,
+        "Playlist deleted successfully",
+        deletedPlaylist
+    ))
 })
 
 const updatePlaylist = asyncHandler(async (req, res) => {
     const { playlistId } = req.params
     const { name, description } = req.body
     //TODO: update playlist
+    if (!isValidObjectId(playlistId)) {
+        throw new ApiError(400, "Invalid playlist id")
+    }
+
+    const playlist = await Playlist.findById(playlistId)
+    if (!playlist) {
+        throw new ApiError(404, "Playlist not found")
+    }
+    if(!name || !description){
+        throw new ApiError(400, "Name and description are required")
+    }
+    const updatedPlaylist = await Playlist.findByIdAndUpdate(playlistId, {
+        name,
+        description
+    }, { new: true })
+    if (!updatedPlaylist) {
+        throw new ApiError(400, "Playlist update failed")
+    }
+
+    return res.status(200).json(new ApiResponse(
+        200,
+        "Playlist updated successfully",
+        updatedPlaylist
+    ))
 })
 
 export {
